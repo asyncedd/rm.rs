@@ -5,7 +5,7 @@ use std::path::Path;
 
 fn is_readonly(path: &Path) -> bool {
     if let Ok(metadata) = fs::metadata(path) {
-        !metadata.permissions().readonly()
+        metadata.permissions().readonly()
     } else {
         false
     }
@@ -41,48 +41,52 @@ fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: {} <file/directory>", args[0]);
+        eprintln!("Usage: {} <file/directory> [<file/directory>...]", args[0]);
         std::process::exit(1);
     }
 
-    let target = &args[1];
-    let path = Path::new(target);
+    for i in 1..args.len() {
+        let target = &args[i];
+        if target != "-f" {
+            let path = Path::new(target);
 
-    if path.exists() {
-        if !(is_readonly(path) && !is_flag_present("-f")) {
-            if path.is_file() {
-                fs::remove_file(path)?;
-                println!("Removed file: {}", target);
-            } else if path.is_dir() {
-                fs::remove_dir_all(path)?;
-                println!("Removed directory and its contents: {}", target);
-            } else {
-                eprintln!("Error: Unsupported file type.");
-                std::process::exit(1);
-            }
-        } else {
-            eprintln!("Error: File is readonly.");
-            eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
-            if check_for_user_input("Continue? (y/N)") {
-                println!("OK.");
-                if path.is_file() {
-                    fs::remove_file(path)?;
-                    println!("Removed file: {}", target);
-                } else if path.is_dir() {
-                    fs::remove_dir_all(path)?;
-                    println!("Removed directory and its contents: {}", target);
+            if path.exists() {
+                if !(is_readonly(path) && !is_flag_present("-f")) {
+                    if path.is_file() {
+                        fs::remove_file(path)?;
+                        println!("Removed file: {}", target);
+                    } else if path.is_dir() {
+                        fs::remove_dir_all(path)?;
+                        println!("Removed directory and its contents: {}", target);
+                    } else {
+                        eprintln!("Error: Unsupported file type: {}", target);
+                        std::process::exit(1);
+                    }
                 } else {
-                    eprintln!("Error: Unsupported file type.");
-                    std::process::exit(1);
+                    eprintln!("Error: File is readonly: {}", target);
+                    eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
+                    if check_for_user_input("Continue? (y/N)") {
+                        println!("OK.");
+                        if path.is_file() {
+                            fs::remove_file(path)?;
+                            println!("Removed file: {}", target);
+                        } else if path.is_dir() {
+                            fs::remove_dir_all(path)?;
+                            println!("Removed directory and its contents: {}", target);
+                        } else {
+                            eprintln!("Error: Unsupported file type: {}", target);
+                            std::process::exit(1);
+                        }
+                    } else {
+                        println!("OK, cancelling.");
+                        std::process::exit(1);
+                    }
                 }
             } else {
-                println!("OK, cancelling.");
+                eprintln!("Error: File or directory not found: {}", target);
                 std::process::exit(1);
             }
         }
-    } else {
-        eprintln!("Error: File or directory not found.");
-        std::process::exit(1);
     }
 
     Ok(())
