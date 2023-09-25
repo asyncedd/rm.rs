@@ -37,6 +37,21 @@ fn check_for_user_input(msg: &str) -> bool {
     }
 }
 
+fn rm(path: &Path, target: &str) -> io::Result<()> {
+    if path.is_file() {
+        fs::remove_file(path)?;
+        println!("Removed file: {}", target);
+    } else if path.is_dir() {
+        fs::remove_dir_all(path)?;
+        println!("Removed directory and its contents: {}", target);
+    } else {
+        eprintln!("Error: Unsupported file type: {}", target);
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -52,31 +67,13 @@ fn main() -> io::Result<()> {
 
             if path.exists() {
                 if !(is_readonly(path) && !is_flag_present("-f")) {
-                    if path.is_file() {
-                        fs::remove_file(path)?;
-                        println!("Removed file: {}", target);
-                    } else if path.is_dir() {
-                        fs::remove_dir_all(path)?;
-                        println!("Removed directory and its contents: {}", target);
-                    } else {
-                        eprintln!("Error: Unsupported file type: {}", target);
-                        std::process::exit(1);
-                    }
+                    rm(path, target)?;
                 } else {
                     eprintln!("Error: File is readonly: {}", target);
                     eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
                     if check_for_user_input("Continue? (y/N)") {
                         println!("OK.");
-                        if path.is_file() {
-                            fs::remove_file(path)?;
-                            println!("Removed file: {}", target);
-                        } else if path.is_dir() {
-                            fs::remove_dir_all(path)?;
-                            println!("Removed directory and its contents: {}", target);
-                        } else {
-                            eprintln!("Error: Unsupported file type: {}", target);
-                            std::process::exit(1);
-                        }
+                        rm(path, target)?;
                     } else {
                         println!("OK, cancelling.");
                         std::process::exit(1);
