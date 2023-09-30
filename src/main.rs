@@ -62,7 +62,7 @@ fn main() -> io::Result<()> {
 
     for i in 1..args.len() {
         let target = &args[i];
-        if target != "-f" {
+        if !target.starts_with("-") {
             let path = Path::new(target);
 
             if path.exists() {
