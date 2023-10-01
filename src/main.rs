@@ -13,11 +13,20 @@ fn is_readonly(path: &Path) -> bool {
 
 fn are_flags_present(flags: Vec<&str>) -> bool {
     let args: Vec<String> = env::args().collect();
-    args.iter().any(|arg| flags.contains(&arg.as_str()))
+
+    let mut flag_list: Vec<&str> = Vec::new();
+
+    for i in 1..args.len() {
+        let arg = &args[i];
+        if arg.starts_with("-") {
+            flag_list.push(arg);
+        }
+    }
+
+    flag_list.iter().any(|arg| flags.contains(&arg))
 }
 
-fn check_for_user_input(msg: &str) -> bool {
-    println!("");
+fn check_for_user_input(msg: &str) -> String {
     print!("{} ", msg);
     io::stdout().flush().unwrap();
 
@@ -26,15 +35,7 @@ fn check_for_user_input(msg: &str) -> bool {
         .read_line(&mut input)
         .expect("Failed to read line");
 
-    let choice = input.trim().to_lowercase();
-
-    if choice.starts_with("y") {
-        true
-    } else if choice.starts_with("n") {
-        false
-    } else {
-        check_for_user_input("Invalid choice. (y/N)")
-    }
+    input.trim().to_lowercase()
 }
 
 fn rm(path: &Path, target: &str) -> io::Result<()> {
@@ -72,15 +73,36 @@ fn main() -> io::Result<()> {
         }
     }
 
+    if are_flags_present(vec!["--help", "-h"]) {
+        eprintln!(
+            r#"
+Usage: {} <file/directory> [<file/directory>...]
+Remove the FILE(s).
+
+-f, --force, --shut-up      ignore nonexistent files and arguments, never prompt. weaker than --interactive.
+-i, --interactive, --annoy  prompt before every removal.
+        "#,
+            args[0]
+        );
+        std::process::exit(0);
+    }
+
     for arg in arguments.iter_mut() {
         let path = Path::new(arg);
         if path.exists() {
-            if !(is_readonly(path) && !(are_flags_present(vec!["--force", "-f"]))) {
-                rm(path, arg)?;
+            if !(is_readonly(path) && !(are_flags_present(vec!["--force", "-f", "--shut-up"]))) {
+                if are_flags_present(vec!["-i", "--interactive", "--annoy"]) {
+                    println!("Deleting {}", arg);
+                    if check_for_user_input("Continue? (y/N)").starts_with("y") {
+                        rm(path, arg)?;
+                    }
+                } else {
+                    rm(path, arg)?;
+                }
             } else {
                 eprintln!("Error: File is readonly: {}", arg);
                 eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
-                if check_for_user_input("Continue? (y/N)") {
+                if check_for_user_input("Continue? (y/N)").starts_with("y") {
                     println!("OK.");
                     rm(path, arg)?;
                 } else {
