@@ -18,12 +18,12 @@ fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
         .par_iter()
         .skip(2)
         .map(|arg| arg.clone())
-        .partition(|arg| arg.starts_with("-"));
+        .partition(|arg| arg.starts_with('-'));
 
     (flags, arguments)
 }
 
-fn are_flags_present(flags: &Vec<String>, flags_to_check: Vec<&str>) -> bool {
+fn are_flags_present(flags: &[String], flags_to_check: Vec<&str>) -> bool {
     flags_to_check
         .par_iter()
         .any(|&flag| flags.contains(&String::from(flag)))
