@@ -28,9 +28,9 @@ fn check_for_user_input(msg: &str) -> bool {
 
     let choice = input.trim().to_lowercase();
 
-    if choice == "y" {
+    if choice.starts_with("y") {
         true
-    } else if choice == "n" {
+    } else if choice.starts_with("n") {
         false
     } else {
         check_for_user_input("Invalid choice. (y/N)")
