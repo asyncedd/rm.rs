@@ -1,6 +1,8 @@
+use inquire::{error::InquireError, Select};
+use rayon::prelude::*;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self};
 use std::path::Path;
 
 fn is_readonly(path: &Path) -> bool {
@@ -13,7 +15,7 @@ fn is_readonly(path: &Path) -> bool {
 
 fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
     let (flags, arguments): (Vec<String>, Vec<String>) = args
-        .iter()
+        .par_iter()
         .skip(2)
         .map(|arg| arg.clone())
         .partition(|arg| arg.starts_with("-"));
@@ -23,7 +25,7 @@ fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
 
 fn are_flags_present(flags: &Vec<String>, flags_to_check: Vec<&str>) -> bool {
     flags_to_check
-        .iter()
+        .par_iter()
         .any(|&flag| flags.contains(&String::from(flag)))
 }
 
@@ -37,23 +39,29 @@ fn rm(path: &Path, target: &str) -> io::Result<()> {
             fs::remove_file(path)?;
             println!("Removed directory and its contents: {}", target);
         }
-        _ => todo!(),
+        _ => {
+            println!("The file type isn't supported.");
+        }
     }
 
     Ok(())
 }
 
 fn check_for_user_input(msg: &str) -> String {
-    print!("{} ", msg);
-    io::stdout().flush().unwrap();
+    let ans: Result<&str, InquireError> = Select::new(msg, OPTIONS.to_vec()).prompt();
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
+    match ans {
+        Ok(choice) => input = choice.to_string(),
+        Err(_) => eprintln!("There was an error, please try again"),
+    }
+
+    println!("{}", input);
 
     input.trim().to_lowercase()
 }
+
+const OPTIONS: [&str; 2] = ["Yes", "No"];
 
 const HELP_MESSAGE: &str = r#"
 ByeBye - Better rm
@@ -84,6 +92,9 @@ fn main() -> io::Result<()> {
         match (path.exists(), force) {
             // If file doesn't exists.
             (false, true) => {
+                rm(path, arg)?;
+            }
+            (false, false) => {
                 match check_for_user_input("File doesn't exists. Delete anyway? (y/N)").as_str() {
                     "y" | "yes" => {
                         rm(path, arg)?;
@@ -102,7 +113,7 @@ fn main() -> io::Result<()> {
                         println!("OK.");
                         rm(path, arg)?;
                     }
-                    _ => todo!(),
+                    _ => println!("OK, stopping."),
                 },
                 false => {
                     rm(path, arg)?;
@@ -112,7 +123,6 @@ fn main() -> io::Result<()> {
             (true, true) => {
                 rm(path, arg)?;
             }
-            _ => todo!(),
         }
     }
     Ok(())
