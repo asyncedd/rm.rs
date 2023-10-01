@@ -4,22 +4,26 @@ use std::fs;
 use std::io::{self};
 use std::path::Path;
 
-fn is_readonly(path: &Path) -> bool {
-    if let Ok(metadata) = fs::metadata(path) {
-        metadata.permissions().readonly()
-    } else {
-        false
-    }
+macro_rules! is_readonly {
+    ($path:expr) => {{
+        if let Ok(metadata) = std::fs::metadata($path) {
+            metadata.permissions().readonly()
+        } else {
+            false
+        }
+    }};
 }
 
-fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
-    let (flags, arguments): (Vec<String>, Vec<String>) = args
-        .iter()
-        .skip(2)
-        .cloned()
-        .partition(|arg| arg.starts_with('-'));
+macro_rules! parse_arguments {
+    ($args:expr) => {{
+        let (flags, arguments): (Vec<String>, Vec<String>) = $args
+            .iter()
+            .skip(2)
+            .cloned()
+            .partition(|arg| arg.starts_with('-'));
 
-    (flags, arguments)
+        (flags, arguments)
+    }};
 }
 
 fn are_flags_present(flags: &[String], flags_to_check: Vec<&str>) -> bool {
@@ -76,7 +80,7 @@ ARGUMENTS:
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let (flags, arguments) = parse_arguments(args.as_slice());
+    let (flags, arguments) = parse_arguments!(args.as_slice());
 
     if are_flags_present(&flags, vec!["-h", "--help"]) {
         println!("{}", HELP_MESSAGE);
@@ -104,7 +108,7 @@ fn main() -> io::Result<()> {
                 }
             }
             // If the file exists but force isn't forceful.
-            (true, false) => match is_readonly(path) {
+            (true, false) => match is_readonly!(path) {
                 true => match check_for_user_input("The file is readonly, delete anyways? (Y/n)")
                     .as_str()
                 {
