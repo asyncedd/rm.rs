@@ -11,9 +11,9 @@ fn is_readonly(path: &Path) -> bool {
     }
 }
 
-fn is_flag_present(flag: &str) -> bool {
+fn are_flags_present(flags: Vec<&str>) -> bool {
     let args: Vec<String> = env::args().collect();
-    args.iter().any(|arg| arg == flag)
+    args.iter().any(|arg| flags.contains(&arg.as_str()))
 }
 
 fn check_for_user_input(msg: &str) -> bool {
@@ -60,29 +60,37 @@ fn main() -> io::Result<()> {
         std::process::exit(1);
     }
 
-    for i in 1..args.len() {
-        let target = &args[i];
-        if !target.starts_with("-") {
-            let path = Path::new(target);
+    let mut flags: Vec<&str> = Vec::new();
+    let mut arguments: Vec<&str> = Vec::new();
 
-            if path.exists() {
-                if !(is_readonly(path) && !is_flag_present("-f")) {
-                    rm(path, target)?;
-                } else {
-                    eprintln!("Error: File is readonly: {}", target);
-                    eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
-                    if check_for_user_input("Continue? (y/N)") {
-                        println!("OK.");
-                        rm(path, target)?;
-                    } else {
-                        println!("OK, cancelling.");
-                        std::process::exit(1);
-                    }
-                }
+    for i in 1..args.len() {
+        let arg = &args[i];
+        if arg.starts_with("-") {
+            flags.push(arg);
+        } else {
+            arguments.push(arg);
+        }
+    }
+
+    for arg in arguments.iter_mut() {
+        let path = Path::new(arg);
+        if path.exists() {
+            if !(is_readonly(path) && !(are_flags_present(vec!["--force", "-f"]))) {
+                rm(path, arg)?;
             } else {
-                eprintln!("Error: File or directory not found: {}", target);
-                std::process::exit(1);
+                eprintln!("Error: File is readonly: {}", arg);
+                eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
+                if check_for_user_input("Continue? (y/N)") {
+                    println!("OK.");
+                    rm(path, arg)?;
+                } else {
+                    println!("OK, cancelling.");
+                    std::process::exit(1);
+                }
             }
+        } else {
+            eprintln!("Error: File or directory not found: {}", arg);
+            std::process::exit(1);
         }
     }
 
