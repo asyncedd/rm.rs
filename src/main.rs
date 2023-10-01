@@ -3,6 +3,22 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
+fn parse_args(args: &Vec<String>) -> (Vec<String>, Vec<String>) {
+    let mut flags = Vec::new();
+    let mut arguments = Vec::new();
+
+    for i in 1..args.len() {
+        let arg = &args[i];
+        if arg.starts_with("-") {
+            flags.push(arg.clone());
+        } else {
+            arguments.push(arg.clone());
+        }
+    }
+
+    (flags, arguments)
+}
+
 fn is_readonly(path: &Path) -> bool {
     if let Ok(metadata) = fs::metadata(path) {
         metadata.permissions().readonly()
@@ -11,19 +27,13 @@ fn is_readonly(path: &Path) -> bool {
     }
 }
 
-fn are_flags_present(flags: Vec<&str>) -> bool {
+fn are_flags_present(flags_to_check: Vec<&str>) -> bool {
     let args: Vec<String> = env::args().collect();
+    let (flags, _) = parse_args(&args);
 
-    let mut flag_list: Vec<&str> = Vec::new();
-
-    for i in 1..args.len() {
-        let arg = &args[i];
-        if arg.starts_with("-") {
-            flag_list.push(arg);
-        }
-    }
-
-    flag_list.iter().any(|arg| flags.contains(&arg))
+    flags_to_check
+        .iter()
+        .any(|&flag| flags.contains(&String::from(flag)))
 }
 
 fn check_for_user_input(msg: &str) -> String {
@@ -61,17 +71,7 @@ fn main() -> io::Result<()> {
         std::process::exit(1);
     }
 
-    let mut flags: Vec<&str> = Vec::new();
-    let mut arguments: Vec<&str> = Vec::new();
-
-    for i in 1..args.len() {
-        let arg = &args[i];
-        if arg.starts_with("-") {
-            flags.push(arg);
-        } else {
-            arguments.push(arg);
-        }
-    }
+    let (mut _flags, mut arguments) = parse_args(&args);
 
     if are_flags_present(vec!["--help", "-h"]) {
         eprintln!(
