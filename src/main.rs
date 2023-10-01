@@ -3,22 +3,6 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-fn parse_args(args: &Vec<String>) -> (Vec<String>, Vec<String>) {
-    let mut flags = Vec::new();
-    let mut arguments = Vec::new();
-
-    for i in 1..args.len() {
-        let arg = &args[i];
-        if arg.starts_with("-") {
-            flags.push(arg.to_string());
-        } else {
-            arguments.push(arg.to_string());
-        }
-    }
-
-    (flags, arguments)
-}
-
 fn is_readonly(path: &Path) -> bool {
     if let Ok(metadata) = fs::metadata(path) {
         metadata.permissions().readonly()
@@ -27,12 +11,36 @@ fn is_readonly(path: &Path) -> bool {
     }
 }
 
-fn are_flags_present(args: &Vec<String>, flags_to_check: Vec<&str>) -> bool {
-    let (flags, _) = parse_args(&args);
+fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
+    let (flags, arguments): (Vec<String>, Vec<String>) = args
+        .iter()
+        .skip(2)
+        .map(|arg| arg.clone())
+        .partition(|arg| arg.starts_with("-"));
 
+    (flags, arguments)
+}
+
+fn are_flags_present(flags: &Vec<String>, flags_to_check: Vec<&str>) -> bool {
     flags_to_check
         .iter()
         .any(|&flag| flags.contains(&String::from(flag)))
+}
+
+fn rm(path: &Path, target: &str) -> io::Result<()> {
+    match (path.is_file(), path.is_dir()) {
+        (true, false) => {
+            fs::remove_file(path)?;
+            println!("Removed file: {}", target);
+        }
+        (false, true) => {
+            fs::remove_file(path)?;
+            println!("Removed directory and its contents: {}", target);
+        }
+        _ => todo!(),
+    }
+
+    Ok(())
 }
 
 fn check_for_user_input(msg: &str) -> String {
@@ -47,75 +55,65 @@ fn check_for_user_input(msg: &str) -> String {
     input.trim().to_lowercase()
 }
 
-fn rm(path: &Path, target: &str) -> io::Result<()> {
-    if path.is_file() {
-        fs::remove_file(path)?;
-        println!("Removed file: {}", target);
-    } else if path.is_dir() {
-        fs::remove_dir_all(path)?;
-        println!("Removed directory and its contents: {}", target);
-    } else {
-        eprintln!("Error: Unsupported file type: {}", target);
-        std::process::exit(1);
-    }
+const HELP_MESSAGE: &str = r#"
+ByeBye - Better rm
+asyncedd<neoasync@proton.me>
 
-    Ok(())
-}
+USAGE:
+    bb [OPTION]... [FILE]...
+
+ARGUMENTS:
+-h, --help                  Ask the computer for help. Won't let the program continue to execute.
+-f, --force                 Bypass all checks. I like calling this a "shut up"
+"#;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
+    let (flags, arguments) = parse_arguments(args.as_slice());
 
-    if args.len() < 2 {
-        eprintln!("Usage: {} <file/directory> [<file/directory>...]", args[0]);
+    if are_flags_present(&flags, vec!["-h", "--help"]) {
+        println!("{}", HELP_MESSAGE);
         std::process::exit(1);
     }
 
-    let (mut _flags, mut arguments) = parse_args(&args);
+    let force = are_flags_present(&args, vec!["--force", "-f"]);
 
-    if are_flags_present(&args, vec!["--help", "-h"]) {
-        eprintln!(
-            r#"
-Usage: {} <file/directory> [<file/directory>...]
-Remove the FILE(s).
-
--f, --force, --shut-up      ignore nonexistent files and arguments, never prompt. weaker than --interactive.
--i, --interactive, --annoy  prompt before every removal.
-        "#,
-            args[0]
-        );
-        std::process::exit(0);
-    }
-
-    for arg in arguments.iter_mut() {
+    for arg in arguments.iter() {
         let path = Path::new(arg);
-        if path.exists() {
-            if !(is_readonly(path)
-                && !(are_flags_present(&args, vec!["--force", "-f", "--shut-up"])))
-            {
-                if are_flags_present(&args, vec!["-i", "--interactive", "--annoy"]) {
-                    println!("Deleting {}", arg);
-                    if check_for_user_input("Continue? (y/N)").starts_with("y") {
+
+        match (path.exists(), force) {
+            // If file doesn't exists.
+            (false, true) => {
+                match check_for_user_input("File doesn't exists. Delete anyway? (y/N)").as_str() {
+                    "y" | "yes" => {
                         rm(path, arg)?;
                     }
-                } else {
-                    rm(path, arg)?;
-                }
-            } else {
-                eprintln!("Error: File is readonly: {}", arg);
-                eprintln!("TIP: Try using the `-f` flag to forcefully delete the file.");
-                if check_for_user_input("Continue? (y/N)").starts_with("y") {
-                    println!("OK.");
-                    rm(path, arg)?;
-                } else {
-                    println!("OK, cancelling.");
-                    std::process::exit(1);
+                    _ => {
+                        println!("OK, cancelling.");
+                    }
                 }
             }
-        } else {
-            eprintln!("Error: File or directory not found: {}", arg);
-            std::process::exit(1);
+            // If the file exists but force isn't forceful.
+            (true, false) => match is_readonly(path) {
+                true => match check_for_user_input("The file is readonly, delete anyways? (Y/n)")
+                    .as_str()
+                {
+                    "y" | "yes" | "" => {
+                        println!("OK.");
+                        rm(path, arg)?;
+                    }
+                    _ => todo!(),
+                },
+                false => {
+                    rm(path, arg)?;
+                }
+            },
+            // If the path exists and force is true
+            (true, true) => {
+                rm(path, arg)?;
+            }
+            _ => todo!(),
         }
     }
-
     Ok(())
 }
