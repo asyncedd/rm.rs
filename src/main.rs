@@ -1,3 +1,4 @@
+extern crate inquire;
 use inquire::{error::InquireError, Select};
 use std::env;
 use std::fs;
@@ -15,7 +16,7 @@ fn is_readonly(path: &Path) -> bool {
 fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
     let (flags, arguments): (Vec<String>, Vec<String>) = args
         .iter()
-        .skip(2)
+        .skip(1)
         .cloned()
         .partition(|arg| arg.starts_with('-'));
 
@@ -39,7 +40,18 @@ fn rm(path: &Path, target: &str) -> io::Result<()> {
             println!("Removed directory and its contents: {}", target);
         }
         _ => {
-            println!("The file type isn't supported.");
+            println!("Can't delete file: {}", target);
+            eprintln!(
+                "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
+            );
+            match check_for_user_input("Do you still want to try?").as_str() {
+                "yes" => {
+                    rm(path, target)?;
+                }
+                _ => {
+                    println!("OK, cancelling.")
+                }
+            }
         }
     }
 
@@ -64,7 +76,7 @@ const OPTIONS: [&str; 2] = ["Yes", "No"];
 
 const HELP_MESSAGE: &str = r#"
 ByeBye - Better rm
-asyncedd<neoasync@proton.me>
+asyncedd 2023
 
 USAGE:
     bb [OPTION]... [FILE]...
@@ -78,7 +90,7 @@ fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let (flags, arguments) = parse_arguments(args.as_slice());
 
-    if are_flags_present(&flags, vec!["-h", "--help"]) {
+    if are_flags_present(&flags, vec!["-h", "--help"]) || arguments.is_empty() {
         println!("{}", HELP_MESSAGE);
         std::process::exit(1);
     }
@@ -94,7 +106,11 @@ fn main() -> io::Result<()> {
                 rm(path, arg)?;
             }
             (false, false) => {
-                match check_for_user_input("File doesn't exists. Delete anyway? (y/N)").as_str() {
+                match check_for_user_input(
+                    format!("File \"{}\" doesn't exists. Delete anyway? (y/N)", arg).as_str(),
+                )
+                .as_str()
+                {
                     "y" | "yes" => {
                         rm(path, arg)?;
                     }
@@ -105,8 +121,10 @@ fn main() -> io::Result<()> {
             }
             // If the file exists but force isn't forceful.
             (true, false) => match is_readonly(path) {
-                true => match check_for_user_input("The file is readonly, delete anyways? (Y/n)")
-                    .as_str()
+                true => match check_for_user_input(
+                    format!("The file \"{}\" is readonly, delete anyways? (Y/n)", arg).as_str(),
+                )
+                .as_str()
                 {
                     "y" | "yes" | "" => {
                         println!("OK.");
