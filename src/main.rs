@@ -10,9 +10,9 @@ fn parse_args(args: &Vec<String>) -> (Vec<String>, Vec<String>) {
     for i in 1..args.len() {
         let arg = &args[i];
         if arg.starts_with("-") {
-            flags.push(arg.clone());
+            flags.push(arg.to_string());
         } else {
-            arguments.push(arg.clone());
+            arguments.push(arg.to_string());
         }
     }
 
@@ -27,8 +27,7 @@ fn is_readonly(path: &Path) -> bool {
     }
 }
 
-fn are_flags_present(flags_to_check: Vec<&str>) -> bool {
-    let args: Vec<String> = env::args().collect();
+fn are_flags_present(args: &Vec<String>, flags_to_check: Vec<&str>) -> bool {
     let (flags, _) = parse_args(&args);
 
     flags_to_check
@@ -73,7 +72,7 @@ fn main() -> io::Result<()> {
 
     let (mut _flags, mut arguments) = parse_args(&args);
 
-    if are_flags_present(vec!["--help", "-h"]) {
+    if are_flags_present(&args, vec!["--help", "-h"]) {
         eprintln!(
             r#"
 Usage: {} <file/directory> [<file/directory>...]
@@ -90,8 +89,10 @@ Remove the FILE(s).
     for arg in arguments.iter_mut() {
         let path = Path::new(arg);
         if path.exists() {
-            if !(is_readonly(path) && !(are_flags_present(vec!["--force", "-f", "--shut-up"]))) {
-                if are_flags_present(vec!["-i", "--interactive", "--annoy"]) {
+            if !(is_readonly(path)
+                && !(are_flags_present(&args, vec!["--force", "-f", "--shut-up"])))
+            {
+                if are_flags_present(&args, vec!["-i", "--interactive", "--annoy"]) {
                     println!("Deleting {}", arg);
                     if check_for_user_input("Continue? (y/N)").starts_with("y") {
                         rm(path, arg)?;
