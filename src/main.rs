@@ -1,5 +1,4 @@
 use inquire::{error::InquireError, Select};
-use rayon::prelude::*;
 use std::env;
 use std::fs;
 use std::io::{self};
@@ -15,9 +14,9 @@ fn is_readonly(path: &Path) -> bool {
 
 fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
     let (flags, arguments): (Vec<String>, Vec<String>) = args
-        .par_iter()
+        .iter()
         .skip(2)
-        .map(|arg| arg.clone())
+        .cloned()
         .partition(|arg| arg.starts_with('-'));
 
     (flags, arguments)
@@ -25,7 +24,7 @@ fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
 
 fn are_flags_present(flags: &[String], flags_to_check: Vec<&str>) -> bool {
     flags_to_check
-        .par_iter()
+        .iter()
         .any(|&flag| flags.contains(&String::from(flag)))
 }
 
