@@ -1,10 +1,23 @@
 extern crate inquire;
+extern crate structopt;
 use inquire::{error::InquireError, Select};
 use std::{
-    env, fs,
+    fs,
     io::{self},
-    path::Path,
+    path::{Path, PathBuf},
 };
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "example", about = "An example of StructOpt usage.")]
+struct Opt {
+    /// Bypass all checks.
+    #[structopt(short, long)]
+    force: bool,
+    /// Files to process
+    #[structopt(name = "FILE", parse(from_os_str))]
+    files: Vec<PathBuf>,
+}
 
 macro_rules! is_readonly {
     ( $p:expr ) => {
@@ -15,42 +28,27 @@ macro_rules! is_readonly {
     };
 }
 
-macro_rules! parse_arguments {
-    ( $args:expr ) => {
-        $args
-            .iter()
-            .skip(1)
-            .cloned()
-            .partition(|arg| arg.starts_with('-'))
-    };
-}
-
-macro_rules! are_flags_present {
-    ( $flags:expr, $flags_to_check:expr ) => {
-        $flags_to_check
-            .iter()
-            .any(|&flag| $flags.contains(&String::from(flag)))
-    };
-}
-
-fn rm(path: &Path, target: &str) -> io::Result<()> {
+fn rm(path: &Path) -> io::Result<()> {
     match (path.is_file(), path.is_dir()) {
         (true, false) => {
             fs::remove_file(path)?;
-            println!("Removed file: {}", target);
+            println!("Removed file: {}", path.to_string_lossy());
         }
         (false, true) => {
             fs::remove_file(path)?;
-            println!("Removed directory and its contents: {}", target);
+            println!(
+                "Removed directory and its contents: {}",
+                path.to_string_lossy()
+            );
         }
         _ => {
-            println!("Can't delete file: {}", target);
+            println!("Can't delete file: {}", path.to_string_lossy());
             eprintln!(
                 "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
             );
             match check_for_user_input("Do you still want to try?").as_str() {
                 "yes" => {
-                    rm(path, target)?;
+                    rm(path)?;
                 }
                 _ => {
                     println!("OK, cancelling.")
@@ -78,45 +76,28 @@ fn check_for_user_input(msg: &str) -> String {
 
 const OPTIONS: [&str; 2] = ["Yes", "No"];
 
-const HELP_MESSAGE: &str = r#"
-ByeBye - Better rm
-asyncedd 2023
-
-USAGE:
-    bb [OPTION]... [FILE]...
-
-ARGUMENTS:
--h, --help                  Ask the computer for help. Won't let the program continue to execute.
--f, --force                 Bypass all checks. I like calling this a "shut up"
-"#;
-
 fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let (flags, arguments): (Vec<String>, Vec<String>) = parse_arguments!(args.as_slice());
+    let opt = Opt::from_args();
+    let force = opt.force;
 
-    if are_flags_present!(&flags, ["-h", "--help"]) || arguments.is_empty() {
-        println!("{}", HELP_MESSAGE);
-        std::process::exit(1);
-    }
-
-    let force = are_flags_present!(&flags, ["--force", "-f"]);
-
-    for arg in arguments.iter() {
-        let path = Path::new(arg);
-
+    for path in opt.files.iter() {
         match (path.exists(), force) {
             // If file doesn't exists.
             (false, true) => {
-                rm(path, arg)?;
+                rm(path)?;
             }
             (false, false) => {
                 match check_for_user_input(
-                    format!("File \"{}\" doesn't exists. Delete anyway? (y/N)", arg).as_str(),
+                    format!(
+                        "File \"{}\" doesn't exists. Delete anyway? (y/N)",
+                        path.to_string_lossy()
+                    )
+                    .as_str(),
                 )
                 .as_str()
                 {
                     "y" | "yes" => {
-                        rm(path, arg)?;
+                        rm(path)?;
                     }
                     _ => {
                         println!("OK, cancelling.");
@@ -126,23 +107,27 @@ fn main() -> io::Result<()> {
             // If the file exists but force isn't forceful.
             (true, false) => match is_readonly!(path) {
                 true => match check_for_user_input(
-                    format!("The file \"{}\" is readonly, delete anyways? (Y/n)", arg).as_str(),
+                    format!(
+                        "The file \"{}\" is readonly, delete anyways? (Y/n)",
+                        path.to_string_lossy()
+                    )
+                    .as_str(),
                 )
                 .as_str()
                 {
                     "y" | "yes" | "" => {
                         println!("OK.");
-                        rm(path, arg)?;
+                        rm(path)?;
                     }
                     _ => println!("OK, stopping."),
                 },
                 false => {
-                    rm(path, arg)?;
+                    rm(path)?;
                 }
             },
             // If the path exists and force is true
             (true, true) => {
-                rm(path, arg)?;
+                rm(path)?;
             }
         }
     }
