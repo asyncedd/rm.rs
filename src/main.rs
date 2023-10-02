@@ -1,9 +1,10 @@
 extern crate inquire;
 use inquire::{error::InquireError, Select};
-use std::env;
-use std::fs;
-use std::io::{self};
-use std::path::Path;
+use std::{
+    env, fs,
+    io::{self},
+    path::Path,
+};
 
 macro_rules! is_readonly {
     ( $p:expr ) => {
