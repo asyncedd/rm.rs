@@ -13,6 +13,9 @@ struct Cli {
     /// Bypass all checks.
     #[arg(short, long)]
     force: bool,
+    /// Confirm all actions.
+    #[arg(short, long)]
+    interactive: bool,
     /// Files to process
     #[arg(required = true)]
     files: Vec<PathBuf>,
@@ -27,18 +30,56 @@ macro_rules! is_readonly {
     };
 }
 
-fn rm(path: &Path) -> io::Result<()> {
+fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     match (path.is_file(), path.is_dir()) {
         (true, false) => {
-            fs::remove_file(path)?;
-            println!("Removed file: {}", path.to_string_lossy());
+            macro_rules! remove_file {
+                () => {
+                    fs::remove_file(path)?;
+                    println!("Removed file: {}", path.to_string_lossy());
+                };
+            }
+            match opt.interactive {
+                true => {
+                    if check_for_user_input(
+                        format!("Remove file {}?", path.to_string_lossy()).as_str(),
+                    )
+                    .as_str()
+                        == "yes"
+                    {
+                        remove_file!();
+                    }
+                }
+                false => {
+                    remove_file!();
+                }
+            }
         }
         (false, true) => {
-            fs::remove_file(path)?;
-            println!(
-                "Removed directory and its contents: {}",
-                path.to_string_lossy()
-            );
+            macro_rules! remove_directory {
+                () => {
+                    fs::remove_dir_all(path)?;
+                    println!(
+                        "Removed directory and its contents: {}",
+                        path.to_string_lossy()
+                    );
+                };
+            }
+            match opt.interactive {
+                true => {
+                    if check_for_user_input(
+                        format!("Remove file {}?", path.to_string_lossy()).as_str(),
+                    )
+                    .as_str()
+                        == "yes"
+                    {
+                        remove_directory!();
+                    }
+                }
+                false => {
+                    remove_directory!();
+                }
+            }
         }
         _ => {
             println!("Can't delete file: {}", path.to_string_lossy());
@@ -75,7 +116,7 @@ fn main() -> io::Result<()> {
         match (path.exists(), force) {
             // If file doesn't exists.
             (false, true) => {
-                rm(path)?;
+                rm(path, &opt)?;
             }
             (false, false) => {
                 match check_for_user_input(
@@ -88,7 +129,7 @@ fn main() -> io::Result<()> {
                 .as_str()
                 {
                     "y" | "yes" => {
-                        rm(path)?;
+                        rm(path, &opt)?;
                     }
                     _ => {
                         println!("OK, cancelling.");
@@ -108,17 +149,17 @@ fn main() -> io::Result<()> {
                 {
                     "y" | "yes" | "" => {
                         println!("OK.");
-                        rm(path)?;
+                        rm(path, &opt)?;
                     }
                     _ => println!("OK, stopping."),
                 },
                 false => {
-                    rm(path)?;
+                    rm(path, &opt)?;
                 }
             },
             // If the path exists and force is true
             (true, true) => {
-                rm(path)?;
+                rm(path, &opt)?;
             }
         }
     }
