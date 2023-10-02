@@ -1,5 +1,5 @@
 use clap::Parser;
-use inquire::{error::InquireError, Select};
+use inquire::Confirm;
 use std::{
     fs,
     io::{self},
@@ -43,10 +43,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                 true => {
                     if check_for_user_input(
                         format!("Remove file {}?", path.to_string_lossy()).as_str(),
-                    )
-                    .as_str()
-                        == "yes"
-                    {
+                    ) {
                         remove_file!();
                     }
                 }
@@ -69,10 +66,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                 true => {
                     if check_for_user_input(
                         format!("Remove file {}?", path.to_string_lossy()).as_str(),
-                    )
-                    .as_str()
-                        == "yes"
-                    {
+                    ) {
                         remove_directory!();
                     }
                 }
@@ -92,21 +86,18 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     Ok(())
 }
 
-fn check_for_user_input(msg: &str) -> String {
-    let ans: Result<&str, InquireError> = Select::new(msg, OPTIONS.to_vec()).prompt();
+fn check_for_user_input(msg: &str) -> bool {
+    let ans = Confirm::new(msg)
+        .with_default(false)
+        .with_help_message("\"think harder looser\" - asyncedd 2023")
+        .prompt();
 
-    let mut input = String::new();
     match ans {
-        Ok(choice) => input = choice.to_string(),
-        Err(_) => eprintln!("There was an error, please try again"),
+        Ok(true) => true,
+        Ok(false) => false,
+        Err(_) => false,
     }
-
-    println!("{}", input);
-
-    input.trim().to_lowercase()
 }
-
-const OPTIONS: [&str; 2] = ["Yes", "No"];
 
 fn main() -> io::Result<()> {
     let opt = Cli::parse();
@@ -121,17 +112,15 @@ fn main() -> io::Result<()> {
             (false, false) => {
                 match check_for_user_input(
                     format!(
-                        "File \"{}\" doesn't exists. Delete anyway? (y/N)",
+                        "File \"{}\" doesn't exists. Delete anyway?",
                         path.to_string_lossy()
                     )
                     .as_str(),
-                )
-                .as_str()
-                {
-                    "y" | "yes" => {
+                ) {
+                    true => {
                         rm(path, &opt)?;
                     }
-                    _ => {
+                    false => {
                         println!("OK, cancelling.");
                     }
                 }
@@ -140,14 +129,12 @@ fn main() -> io::Result<()> {
             (true, false) => match is_readonly!(path) {
                 true => match check_for_user_input(
                     format!(
-                        "The file \"{}\" is readonly, delete anyways? (Y/n)",
+                        "The file \"{}\" is readonly, delete anyways?",
                         path.to_string_lossy()
                     )
                     .as_str(),
-                )
-                .as_str()
-                {
-                    "y" | "yes" | "" => {
+                ) {
+                    true => {
                         println!("OK.");
                         rm(path, &opt)?;
                     }
