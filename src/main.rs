@@ -8,10 +8,7 @@ use std::{
 
 /// A `rm` replacement
 #[derive(Parser)]
-#[command(name = "ByeBye")]
-#[command(author = "asyncedd")]
-#[command(version = "1.0")]
-#[command(about = "A `rm` replacement in Rust.", long_about = None)]
+#[command(name = "ByeBye", author = "asyncedd", version = "1.0", about = "A `rm` replacement in Rust.", long_about = None)]
 struct Cli {
     /// Bypass all checks.
     #[arg(short, long)]
@@ -48,14 +45,6 @@ fn rm(path: &Path) -> io::Result<()> {
             eprintln!(
                 "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
             );
-            match check_for_user_input("Do you still want to try?").as_str() {
-                "yes" => {
-                    rm(path)?;
-                }
-                _ => {
-                    println!("OK, cancelling.")
-                }
-            }
         }
     }
 
