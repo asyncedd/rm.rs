@@ -5,28 +5,31 @@ use std::fs;
 use std::io::{self};
 use std::path::Path;
 
-fn is_readonly(path: &Path) -> bool {
-    if let Ok(metadata) = fs::metadata(path) {
-        metadata.permissions().readonly()
-    } else {
-        false
-    }
+macro_rules! is_readonly {
+    ( $p:expr ) => {
+        fs::metadata($p)
+            .expect("Failed to get metadata for file")
+            .permissions()
+            .readonly()
+    };
 }
 
-fn parse_arguments(args: &[String]) -> (Vec<String>, Vec<String>) {
-    let (flags, arguments): (Vec<String>, Vec<String>) = args
-        .iter()
-        .skip(1)
-        .cloned()
-        .partition(|arg| arg.starts_with('-'));
-
-    (flags, arguments)
+macro_rules! parse_arguments {
+    ( $args:expr ) => {
+        $args
+            .iter()
+            .skip(1)
+            .cloned()
+            .partition(|arg| arg.starts_with('-'))
+    };
 }
 
-fn are_flags_present(flags: &[String], flags_to_check: Vec<&str>) -> bool {
-    flags_to_check
-        .iter()
-        .any(|&flag| flags.contains(&String::from(flag)))
+macro_rules! are_flags_present {
+    ( $flags:expr, $flags_to_check:expr ) => {
+        $flags_to_check
+            .iter()
+            .any(|&flag| $flags.contains(&String::from(flag)))
+    };
 }
 
 fn rm(path: &Path, target: &str) -> io::Result<()> {
@@ -88,14 +91,14 @@ ARGUMENTS:
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let (flags, arguments) = parse_arguments(args.as_slice());
+    let (flags, arguments): (Vec<String>, Vec<String>) = parse_arguments!(args.as_slice());
 
-    if are_flags_present(&flags, vec!["-h", "--help"]) || arguments.is_empty() {
+    if are_flags_present!(&flags, ["-h", "--help"]) || arguments.is_empty() {
         println!("{}", HELP_MESSAGE);
         std::process::exit(1);
     }
 
-    let force = are_flags_present(&args, vec!["--force", "-f"]);
+    let force = are_flags_present!(&flags, ["--force", "-f"]);
 
     for arg in arguments.iter() {
         let path = Path::new(arg);
@@ -120,7 +123,7 @@ fn main() -> io::Result<()> {
                 }
             }
             // If the file exists but force isn't forceful.
-            (true, false) => match is_readonly(path) {
+            (true, false) => match is_readonly!(path) {
                 true => match check_for_user_input(
                     format!("The file \"{}\" is readonly, delete anyways? (Y/n)", arg).as_str(),
                 )
