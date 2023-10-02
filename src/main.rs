@@ -110,36 +110,30 @@ fn main() -> io::Result<()> {
                 rm(path, &opt)?;
             }
             (false, false) => {
-                match check_for_user_input(
+                if check_for_user_input(
                     format!(
                         "File \"{}\" doesn't exists. Delete anyway?",
                         path.to_string_lossy()
                     )
                     .as_str(),
                 ) {
-                    true => {
-                        rm(path, &opt)?;
-                    }
-                    false => {
-                        println!("OK, cancelling.");
-                    }
+                    rm(path, &opt)?;
                 }
             }
             // If the file exists but force isn't forceful.
             (true, false) => match is_readonly!(path) {
-                true => match check_for_user_input(
-                    format!(
-                        "The file \"{}\" is readonly, delete anyways?",
-                        path.to_string_lossy()
-                    )
-                    .as_str(),
-                ) {
-                    true => {
+                true => {
+                    if check_for_user_input(
+                        format!(
+                            "The file \"{}\" is readonly, delete anyways?",
+                            path.to_string_lossy()
+                        )
+                        .as_str(),
+                    ) {
                         println!("OK.");
                         rm(path, &opt)?;
                     }
-                    _ => println!("OK, stopping."),
-                },
+                }
                 false => {
                     rm(path, &opt)?;
                 }
