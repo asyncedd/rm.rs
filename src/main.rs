@@ -1,21 +1,23 @@
-extern crate inquire;
-extern crate structopt;
+use clap::Parser;
 use inquire::{error::InquireError, Select};
 use std::{
     fs,
     io::{self},
     path::{Path, PathBuf},
 };
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "example", about = "An example of StructOpt usage.")]
-struct Opt {
+/// A `rm` replacement
+#[derive(Parser)]
+#[command(name = "ByeBye")]
+#[command(author = "asyncedd")]
+#[command(version = "1.0")]
+#[command(about = "A `rm` replacement in Rust.", long_about = None)]
+struct Cli {
     /// Bypass all checks.
-    #[structopt(short, long)]
+    #[arg(short, long)]
     force: bool,
     /// Files to process
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[arg(required = true)]
     files: Vec<PathBuf>,
 }
 
@@ -77,7 +79,7 @@ fn check_for_user_input(msg: &str) -> String {
 const OPTIONS: [&str; 2] = ["Yes", "No"];
 
 fn main() -> io::Result<()> {
-    let opt = Opt::from_args();
+    let opt = Cli::parse();
     let force = opt.force;
 
     for path in opt.files.iter() {
