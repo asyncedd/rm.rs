@@ -41,8 +41,8 @@ macro_rules! confirmation {
 
 fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     let interactive = opt.interactive;
-    match (path.is_file(), path.is_dir()) {
-        (true, false) => {
+    match path.is_file() {
+        true => {
             macro_rules! remove_file {
                 () => {
                     fs::remove_file(path)?;
@@ -65,38 +65,40 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                 }
             }
         }
-        (false, true) => {
-            macro_rules! remove_directory {
-                () => {
-                    fs::remove_dir_all(path)?;
-                    println!(
-                        "Removed directory and its contents: {}",
-                        path.to_string_lossy()
-                    );
-                };
-            }
-            match interactive {
-                true => {
-                    if check_for_user_input(confirmation!(format!(
-                        "Remove file {}?",
-                        path.to_string_lossy()
-                    )
-                    .as_str()))
-                    {
+        false => match path.is_dir() {
+            true => {
+                macro_rules! remove_directory {
+                    () => {
+                        fs::remove_dir_all(path)?;
+                        println!(
+                            "Removed directory and its contents: {}",
+                            path.to_string_lossy()
+                        );
+                    };
+                }
+                match interactive {
+                    true => {
+                        if check_for_user_input(confirmation!(format!(
+                            "Remove file {}?",
+                            path.to_string_lossy()
+                        )
+                        .as_str()))
+                        {
+                            remove_directory!();
+                        }
+                    }
+                    false => {
                         remove_directory!();
                     }
                 }
-                false => {
-                    remove_directory!();
-                }
             }
-        }
-        _ => {
-            println!("Can't delete file: {}", path.to_string_lossy());
-            eprintln!(
-                "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
-            );
-        }
+            _ => {
+                println!("Can't delete file: {}", path.to_string_lossy());
+                eprintln!(
+                    "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
+                );
+            }
+        },
     }
 
     Ok(())
