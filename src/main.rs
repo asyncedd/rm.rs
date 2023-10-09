@@ -40,6 +40,7 @@ macro_rules! confirmation {
 }
 
 fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
+    let interactive = opt.interactive;
     match (path.is_file(), path.is_dir()) {
         (true, false) => {
             macro_rules! remove_file {
@@ -48,7 +49,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                     println!("Removed file: {}", path.to_string_lossy());
                 };
             }
-            match opt.interactive {
+            match interactive {
                 true => {
                     if check_for_user_input(confirmation!(format!(
                         "Remove file {}?",
@@ -74,7 +75,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                     );
                 };
             }
-            match opt.interactive {
+            match interactive {
                 true => {
                     if check_for_user_input(confirmation!(format!(
                         "Remove file {}?",
@@ -113,13 +114,20 @@ fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
 
 fn main() -> io::Result<()> {
     let opt = Cli::parse();
-    let force = opt.force;
+    let forced = opt.force;
 
     for path in opt.files.iter() {
-        match (path.exists(), force) {
+        let exists = path.exists();
+
+        macro_rules! rm {
+            () => {
+                rm(path, &opt)?;
+            };
+        }
+        match (exists, forced) {
             // If file doesn't exists.
             (false, true) => {
-                rm(path, &opt)?;
+                rm!();
             }
             (false, false) => {
                 if check_for_user_input(confirmation!(format!(
@@ -128,7 +136,7 @@ fn main() -> io::Result<()> {
                 )
                 .as_str()))
                 {
-                    rm(path, &opt)?;
+                    rm!();
                 }
             }
             // If the file exists but force isn't forceful.
@@ -141,16 +149,16 @@ fn main() -> io::Result<()> {
                     .as_str()))
                     {
                         println!("OK.");
-                        rm(path, &opt)?;
+                        rm!();
                     }
                 }
                 false => {
-                    rm(path, &opt)?;
+                    rm!();
                 }
             },
             // If the path exists and force is true
             (true, true) => {
-                rm(path, &opt)?;
+                rm!();
             }
         }
     }
