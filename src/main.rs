@@ -1,5 +1,5 @@
 use clap::Parser;
-use inquire::Confirm;
+use inquire::{Confirm, InquireError};
 use std::{
     fs,
     io::{self},
@@ -30,6 +30,15 @@ macro_rules! is_readonly {
     };
 }
 
+macro_rules! confirmation {
+    ( $m:expr ) => {
+        Confirm::new($m)
+            .with_default(false)
+            .with_help_message("\"think harder looser\" - asyncedd 2023")
+            .prompt()
+    };
+}
+
 fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     match (path.is_file(), path.is_dir()) {
         (true, false) => {
@@ -41,9 +50,12 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
             }
             match opt.interactive {
                 true => {
-                    if check_for_user_input(
-                        format!("Remove file {}?", path.to_string_lossy()).as_str(),
-                    ) {
+                    if check_for_user_input(confirmation!(format!(
+                        "Remove file {}?",
+                        path.to_string_lossy()
+                    )
+                    .as_str()))
+                    {
                         remove_file!();
                     }
                 }
@@ -64,9 +76,12 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
             }
             match opt.interactive {
                 true => {
-                    if check_for_user_input(
-                        format!("Remove file {}?", path.to_string_lossy()).as_str(),
-                    ) {
+                    if check_for_user_input(confirmation!(format!(
+                        "Remove file {}?",
+                        path.to_string_lossy()
+                    )
+                    .as_str()))
+                    {
                         remove_directory!();
                     }
                 }
@@ -86,13 +101,10 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     Ok(())
 }
 
-fn check_for_user_input(msg: &str) -> bool {
-    let ans = Confirm::new(msg)
-        .with_default(false)
-        .with_help_message("\"think harder looser\" - asyncedd 2023")
-        .prompt();
+fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
+    let ans = confirm;
 
-    match ans {
+    match confirm {
         Ok(true) => true,
         Ok(false) => false,
         Err(_) => false,
@@ -110,26 +122,24 @@ fn main() -> io::Result<()> {
                 rm(path, &opt)?;
             }
             (false, false) => {
-                if check_for_user_input(
-                    format!(
-                        "File \"{}\" doesn't exists. Delete anyway?",
-                        path.to_string_lossy()
-                    )
-                    .as_str(),
-                ) {
+                if check_for_user_input(confirmation!(format!(
+                    "File \"{}\" doesn't exists. Delete anyway?",
+                    path.to_string_lossy()
+                )
+                .as_str()))
+                {
                     rm(path, &opt)?;
                 }
             }
             // If the file exists but force isn't forceful.
             (true, false) => match is_readonly!(path) {
                 true => {
-                    if check_for_user_input(
-                        format!(
-                            "The file \"{}\" is readonly, delete anyways?",
-                            path.to_string_lossy()
-                        )
-                        .as_str(),
-                    ) {
+                    if check_for_user_input(confirmation!(format!(
+                        "The file \"{}\" is readonly, delete anyways?",
+                        path.to_string_lossy()
+                    )
+                    .as_str()))
+                    {
                         println!("OK.");
                         rm(path, &opt)?;
                     }
