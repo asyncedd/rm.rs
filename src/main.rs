@@ -124,32 +124,39 @@ fn main() -> io::Result<()> {
                 rm(path, &opt)?;
             };
         }
+        macro_rules! confirm {
+            ($a:expr, $mac:ident) => {
+                if $a {
+                    $mac!();
+                }
+            };
+        }
         match (exists, forced) {
             // If file doesn't exists.
             (false, true) => {
                 rm!();
             }
             (false, false) => {
-                if check_for_user_input(confirmation!(format!(
-                    "File \"{}\" doesn't exists. Delete anyway?",
-                    path.to_string_lossy()
+                confirm!(
+                    check_for_user_input(confirmation!(format!(
+                        "File \"{}\" doesn't exists. Delete anyway?",
+                        path.to_string_lossy()
+                    )
+                    .as_str())),
+                    rm
                 )
-                .as_str()))
-                {
-                    rm!();
-                }
             }
             // If the file exists but force isn't forceful.
             (true, false) => match is_readonly!(path) {
                 true => {
-                    if check_for_user_input(confirmation!(format!(
-                        "The file \"{}\" is readonly, delete anyways?",
-                        path.to_string_lossy()
+                    confirm!(
+                        check_for_user_input(confirmation!(format!(
+                            "The file \"{}\" is readonly, delete anyways?",
+                            path.to_string_lossy()
+                        )
+                        .as_str())),
+                        rm
                     )
-                    .as_str()))
-                    {
-                        rm!();
-                    }
                 }
                 false => {
                     rm!();
