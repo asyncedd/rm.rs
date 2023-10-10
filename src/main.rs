@@ -150,7 +150,6 @@ fn main() -> io::Result<()> {
                     )
                     .as_str()))
                     {
-                        println!("OK.");
                         rm!();
                     }
                 }
