@@ -41,6 +41,20 @@ macro_rules! confirmation {
 
 fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     let interactive = opt.interactive;
+    macro_rules! interactive {
+        ($a:expr, $mac:ident) => {
+            match interactive {
+                true => {
+                    if $a {
+                        $mac!();
+                    }
+                }
+                false => {
+                    $mac!();
+                }
+            }
+        };
+    }
     match path.is_file() {
         true => {
             macro_rules! remove_file {
@@ -49,21 +63,14 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                     println!("Removed file: {}", path.to_string_lossy());
                 };
             }
-            match interactive {
-                true => {
-                    if check_for_user_input(confirmation!(format!(
-                        "Remove file {}?",
-                        path.to_string_lossy()
-                    )
-                    .as_str()))
-                    {
-                        remove_file!();
-                    }
-                }
-                false => {
-                    remove_file!();
-                }
-            }
+            interactive!(
+                check_for_user_input(confirmation!(format!(
+                    "Remove file {}?",
+                    path.to_string_lossy()
+                )
+                .as_str())),
+                remove_file
+            );
         }
         false => match path.is_dir() {
             true => {
@@ -76,21 +83,14 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                         );
                     };
                 }
-                match interactive {
-                    true => {
-                        if check_for_user_input(confirmation!(format!(
-                            "Remove file {}?",
-                            path.to_string_lossy()
-                        )
-                        .as_str()))
-                        {
-                            remove_directory!();
-                        }
-                    }
-                    false => {
-                        remove_directory!();
-                    }
-                }
+                interactive!(
+                    check_for_user_input(confirmation!(format!(
+                        "Remove file {}?",
+                        path.to_string_lossy()
+                    )
+                    .as_str())),
+                    remove_directory
+                )
             }
             _ => {
                 println!("Can't delete file: {}", path.to_string_lossy());
@@ -105,8 +105,6 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
 }
 
 fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
-    let ans = confirm;
-
     match confirm {
         Ok(true) => true,
         Ok(false) => false,
