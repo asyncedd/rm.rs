@@ -1,11 +1,5 @@
-use clap::Parser;
-use inquire::{Confirm, InquireError};
-use std::{
-    fs,
-    io::{self},
-    path::{Path, PathBuf},
-};
-
+mod prelude;
+use crate::prelude::*;
 /// A `rm` replacement
 #[derive(Parser)]
 #[command(name = "ByeBye", author = "asyncedd", version = "1.0", about = "A `rm` replacement in Rust.", long_about = None)]
@@ -125,9 +119,9 @@ fn main() -> io::Result<()> {
             };
         }
         macro_rules! confirm {
-            ($a:expr, $mac:ident) => {
+            ($a:expr, $m:ident) => {
                 if $a {
-                    $mac!();
+                    $m!();
                 }
             };
         }
