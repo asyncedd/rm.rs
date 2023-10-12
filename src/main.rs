@@ -33,6 +33,16 @@ macro_rules! confirmation {
     };
 }
 
+macro_rules! check_for_user_input {
+    ($confirm: expr) => {
+        match $confirm {
+            Ok(true) => true,
+            Ok(false) => false,
+            Err(_) => false,
+        }
+    };
+}
+
 fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     let interactive = opt.interactive;
     macro_rules! interactive {
@@ -58,7 +68,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                 };
             }
             interactive!(
-                check_for_user_input(confirmation!(format!(
+                check_for_user_input!(confirmation!(format!(
                     "Remove file {}?",
                     path.to_string_lossy()
                 )
@@ -78,7 +88,7 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
                     };
                 }
                 interactive!(
-                    check_for_user_input(confirmation!(format!(
+                    check_for_user_input!(confirmation!(format!(
                         "Remove file {}?",
                         path.to_string_lossy()
                     )
@@ -96,14 +106,6 @@ fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
     }
 
     Ok(())
-}
-
-fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
-    match confirm {
-        Ok(true) => true,
-        Ok(false) => false,
-        Err(_) => false,
-    }
 }
 
 fn main() -> io::Result<()> {
@@ -132,7 +134,7 @@ fn main() -> io::Result<()> {
             }
             (false, false) => {
                 confirm!(
-                    check_for_user_input(confirmation!(format!(
+                    check_for_user_input!(confirmation!(format!(
                         "File \"{}\" doesn't exists. Delete anyway?",
                         path.to_string_lossy()
                     )
@@ -144,7 +146,7 @@ fn main() -> io::Result<()> {
             (true, false) => match is_readonly!(path) {
                 true => {
                     confirm!(
-                        check_for_user_input(confirmation!(format!(
+                        check_for_user_input!(confirmation!(format!(
                             "The file \"{}\" is readonly, delete anyways?",
                             path.to_string_lossy()
                         )
