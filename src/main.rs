@@ -1,18 +1,30 @@
-mod prelude;
-use crate::prelude::*;
-/// A `rm` replacement
+use clap::Parser;
+pub use inquire::{Confirm, InquireError};
+pub use std::{
+    fs,
+    io::{self},
+    path::{Path, PathBuf},
+};
+
 #[derive(Parser)]
-#[command(name = "ByeBye", author = "asyncedd", version = "1.0", about = "A `rm` replacement in Rust.", long_about = None)]
+#[command(
+    author = "asyncedd<neoasync.proton.me>",
+    version = "1.0",
+    about = "Super simple rm replacement in Rust",
+    long_about = "A rm replacement in written in Rust by asyncedd<neoasync.proton.me> as a toy project"
+)]
 struct Cli {
-    /// Bypass all checks.
-    #[arg(short, long)]
-    force: bool,
-    /// Confirm all actions.
-    #[arg(short, long)]
-    interactive: bool,
-    /// Files to process
     #[arg(required = true)]
     files: Vec<PathBuf>,
+
+    /// Number of times to greet
+    #[arg(short, long)]
+    force: bool,
+}
+enum FileType {
+    File,
+    Directory,
+    Other,
 }
 
 macro_rules! is_readonly {
@@ -43,126 +55,73 @@ macro_rules! check_for_user_input {
     };
 }
 
-fn rm(path: &Path, opt: &Cli) -> io::Result<()> {
-    let interactive = opt.interactive;
-    macro_rules! interactive {
-        ($a:expr, $mac:ident) => {
-            match interactive {
-                true => {
-                    if $a {
-                        $mac!();
-                    }
-                }
-                false => {
-                    $mac!();
-                }
-            }
-        };
+fn check_file_type(path: &Path) -> FileType {
+    if path.is_file() {
+        FileType::File
+    } else if path.is_dir() {
+        FileType::Directory
+    } else {
+        FileType::Other
     }
-    match path.is_file() {
-        true => {
-            macro_rules! remove_file {
-                () => {
-                    fs::remove_file(path)?;
-                    println!("Removed file: {}", path.to_string_lossy());
-                };
-            }
-            interactive!(
-                check_for_user_input!(confirmation!(format!(
-                    "Remove file {}?",
-                    path.to_string_lossy()
-                )
-                .as_str())),
-                remove_file
-            );
-        }
-        false => match path.is_dir() {
-            true => {
-                macro_rules! remove_directory {
-                    () => {
-                        fs::remove_dir_all(path)?;
-                        println!(
-                            "Removed directory and its contents: {}",
-                            path.to_string_lossy()
-                        );
-                    };
-                }
-                interactive!(
-                    check_for_user_input!(confirmation!(format!(
-                        "Remove file {}?",
-                        path.to_string_lossy()
-                    )
-                    .as_str())),
-                    remove_directory
-                )
-            }
-            _ => {
-                println!("Can't delete file: {}", path.to_string_lossy());
-                eprintln!(
-                    "Maybe the file doesn't exists? (anyhow, it's neither a file nor a directory.)"
-                );
-            }
-        },
-    }
-
-    Ok(())
 }
 
-fn main() -> io::Result<()> {
+fn file_exists(path: &Path) -> bool {
+    if let Ok(metadata) = fs::metadata(path) {
+        metadata.is_file()
+    } else {
+        false
+    }
+}
+
+fn main() -> Result<(), io::Error> {
     let opt = Cli::parse();
-    let forced = opt.force;
 
-    for path in opt.files.iter() {
-        let exists = path.exists();
+    let result = opt.files.iter().try_for_each(|path| {
+        let file = Path::new(&path);
 
-        macro_rules! rm {
-            () => {
-                rm(path, &opt)?;
-            };
-        }
-        macro_rules! confirm {
-            ($a:expr, $m:ident) => {
-                if $a {
-                    $m!();
+        macro_rules! error_check {
+            ($f:expr) => {
+                if let Err(e) = $f {
+                    return Err(e);
                 }
             };
         }
-        match (exists, forced) {
-            // If file doesn't exists.
-            (false, true) => {
-                rm!();
-            }
-            (false, false) => {
-                confirm!(
-                    check_for_user_input!(confirmation!(format!(
-                        "File \"{}\" doesn't exists. Delete anyway?",
+
+        macro_rules! remove_file {
+            ($path:expr, $fn:expr) => {
+                if !opt.force && is_readonly!($path) {
+                    if check_for_user_input!(confirmation!(format!(
+                        "The file \"{}\" is readonly, delete anyways?",
                         path.to_string_lossy()
                     )
-                    .as_str())),
-                    rm
-                )
+                    .as_str()))
+                    {
+                        error_check!($fn($path));
+                    }
+                } else {
+                    error_check!($fn($path));
+                }
+            };
+        }
+
+        match check_file_type(&file) {
+            FileType::File => {
+                remove_file!(file, fs::remove_file);
             }
-            // If the file exists but force isn't forceful.
-            (true, false) => match is_readonly!(path) {
-                true => {
-                    confirm!(
-                        check_for_user_input!(confirmation!(format!(
-                            "The file \"{}\" is readonly, delete anyways?",
-                            path.to_string_lossy()
-                        )
-                        .as_str())),
-                        rm
-                    )
+            FileType::Directory => {
+                remove_file!(file, fs::remove_dir_all);
+            }
+            FileType::Other => {
+                if file_exists(&file) {
+                    eprintln!("The file doesn't exist.")
+                } else {
+                    eprintln!("The filetype isn't supported.");
                 }
-                false => {
-                    rm!();
-                }
-            },
-            // If the path exists and force is true
-            (true, true) => {
-                rm!();
             }
         }
-    }
-    Ok(())
+
+        Ok(())
+    });
+
+    result.map(|_| ())
 }
