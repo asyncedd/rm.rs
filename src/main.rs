@@ -12,9 +12,11 @@ struct Cli {
     #[arg(required = true)]
     files: Vec<PathBuf>,
 
-    /// Number of times to greet
     #[arg(short, long)]
     force: bool,
+
+    #[arg(short, long)]
+    interactive: bool,
 }
 enum FileType {
     File,
@@ -84,9 +86,9 @@ fn main() -> Result<(), io::Error> {
 
         macro_rules! remove_file {
             ($path:expr, $fn:expr) => {
-                if !opt.force && is_readonly!($path) {
+                if (!opt.force && is_readonly!($path)) || opt.interactive {
                     if check_for_user_input!(confirmation!(format!(
-                        "The file \"{}\" is readonly, delete anyways?",
+                        "The file \"{}\" is readonly or you're in interactive mode, delete anyways?",
                         path.to_string_lossy()
                     )
                     .as_str()))
