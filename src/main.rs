@@ -6,31 +6,55 @@ use prelude::*;
     author = "asyncedd<neoasync.proton.me>",
     version = "1.0",
     about = "Super simple rm replacement in Rust",
-    long_about = "A rm replacement in written in Rust by asyncedd<neoasync.proton.me> as a toy project"
+    long_about = "A rm replacement written in Rust by asyncedd<neoasync.proton.me> as a toy project"
 )]
+#[command(propagate_version = true)]
 struct Cli {
+    /// Files to remove
     #[arg(required = true)]
     files: Vec<PathBuf>,
 
+    /// Ignore all prompts, gets overridden by '--interactive'
     #[arg(short, long)]
     force: bool,
 
+    /// Prompt every action
     #[arg(short, long)]
     interactive: bool,
 }
+
 enum FileType {
     File,
     Directory,
+    Nonexistent,
     Other,
 }
 
-macro_rules! is_readonly {
-    ( $p:expr ) => {
-        fs::metadata($p)
-            .expect("Failed to get metadata for file")
-            .permissions()
-            .readonly()
-    };
+impl FileType {
+    fn delete(&self, opt: &Cli, path: &Path) -> Result<(), io::Error> {
+        match self {
+            FileType::File => {
+                remove_file_with_options(path, |path| fs::remove_file(path), opt)?;
+            }
+            FileType::Directory => {
+                remove_file_with_options(path, |path| fs::remove_dir_all(path), opt)?;
+            }
+            FileType::Nonexistent => {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("File not found: {:?}", path),
+                ))
+            }
+            FileType::Other => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Unsupported file type. (Neither a file nor a directory.)",
+                ))
+            }
+        }
+
+        Ok(())
+    }
 }
 
 macro_rules! confirmation {
@@ -53,72 +77,39 @@ macro_rules! check_for_user_input {
 }
 
 fn check_file_type(path: &Path) -> FileType {
-    if path.is_file() {
-        FileType::File
-    } else if path.is_dir() {
-        FileType::Directory
-    } else {
-        FileType::Other
+    match path.exists() {
+        true if path.is_file() => FileType::File,
+        true if path.is_dir() => FileType::Directory,
+        false => FileType::Nonexistent,
+        _ => FileType::Other,
     }
 }
 
-fn file_exists(path: &Path) -> bool {
-    if let Ok(metadata) = fs::metadata(path) {
-        metadata.is_file()
-    } else {
-        false
+fn remove_file_with_options<F>(path: &Path, action_fn: F, options: &Cli) -> Result<(), io::Error>
+where
+    F: for<'a> Fn(&'a Path) -> Result<(), io::Error>,
+{
+    #[allow(clippy::collapsible_if)]
+    if options.interactive || (!options.force && path.metadata()?.permissions().readonly()) {
+        if !check_for_user_input!(confirmation!(format!(
+            "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
+            path.to_string_lossy()
+        )
+        .as_str()))
+        {
+            return Ok(());
+        }
     }
+
+    action_fn(path)?;
+    Ok(())
 }
 
 fn main() -> Result<(), io::Error> {
     let opt = Cli::parse();
 
-    let result = opt.files.iter().try_for_each(|path| {
-        let file = Path::new(&path);
-
-        macro_rules! error_check {
-            ($f:expr) => {
-                if let Err(e) = $f {
-                    return Err(e);
-                }
-            };
-        }
-
-        macro_rules! remove_file {
-            ($path:expr, $fn:expr) => {
-                if (!opt.force && is_readonly!($path)) || opt.interactive {
-                    if check_for_user_input!(confirmation!(format!(
-                        "The file \"{}\" is readonly or you're in interactive mode, delete anyways?",
-                        path.to_string_lossy()
-                    )
-                    .as_str()))
-                    {
-                        error_check!($fn($path));
-                    }
-                } else {
-                    error_check!($fn($path));
-                }
-            };
-        }
-
-        match check_file_type(&file) {
-            FileType::File => {
-                remove_file!(file, fs::remove_file);
-            }
-            FileType::Directory => {
-                remove_file!(file, fs::remove_dir_all);
-            }
-            FileType::Other => {
-                if file_exists(&file) {
-                    eprintln!("The file doesn't exist.")
-                } else {
-                    eprintln!("The filetype isn't supported.");
-                }
-            }
-        }
-
+    opt.files.iter().try_for_each(|file| {
+        check_file_type(&file).delete(&opt, file)?;
         Ok(())
-    });
-
-    result.map(|_| ())
+    })
 }
