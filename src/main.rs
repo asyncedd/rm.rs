@@ -26,7 +26,7 @@ struct Cli {
 enum FileType {
     File,
     Directory,
-    Nonexistent,
+    NotFound,
     Other,
 }
 
@@ -39,7 +39,7 @@ impl FileType {
             FileType::Directory => {
                 remove_file_with_options(path, |path| fs::remove_dir_all(path), opt)?;
             }
-            FileType::Nonexistent => {
+            FileType::NotFound => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
                     format!("File not found: {:?}", path),
@@ -57,15 +57,6 @@ impl FileType {
     }
 }
 
-macro_rules! confirmation {
-    ( $m:expr ) => {
-        Confirm::new($m)
-            .with_default(false)
-            .with_help_message("\"think harder looser\" - asyncedd 2023")
-            .prompt()
-    };
-}
-
 macro_rules! check_for_user_input {
     ($confirm: expr) => {
         match $confirm {
@@ -80,7 +71,7 @@ fn check_file_type(path: &Path) -> FileType {
     match path.exists() {
         true if path.is_file() => FileType::File,
         true if path.is_dir() => FileType::Directory,
-        false => FileType::Nonexistent,
+        false => FileType::NotFound,
         _ => FileType::Other,
     }
 }
@@ -91,11 +82,16 @@ where
 {
     #[allow(clippy::collapsible_if)]
     if options.interactive || (!options.force && path.metadata()?.permissions().readonly()) {
-        if !check_for_user_input!(confirmation!(format!(
-            "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
-            path.to_string_lossy()
+        if !check_for_user_input!(Confirm::new(
+            format!(
+                "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
+                path.to_string_lossy()
+            )
+            .as_str()
         )
-        .as_str()))
+        .with_default(false)
+        .with_help_message("\"think harder looser\" - asyncedd 2023")
+        .prompt())
         {
             return Ok(());
         }
