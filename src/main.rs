@@ -105,7 +105,9 @@ fn main() -> Result<(), io::Error> {
     let opt = Cli::parse();
 
     opt.files.iter().try_for_each(|file| {
-        check_file_type(&file).delete(&opt, file)?;
+        if let Err(err) = check_file_type(&file).delete(&opt, file) {
+            eprint!("Error: {}", err);
+        }
         Ok(())
     })
 }
