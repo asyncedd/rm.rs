@@ -90,7 +90,6 @@ where
             .as_str()
         )
         .with_default(false)
-        .with_help_message("\"think harder looser\" - asyncedd 2023")
         .prompt())
         {
             return Ok(());
