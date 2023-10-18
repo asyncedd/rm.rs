@@ -88,7 +88,7 @@ where
             )
             .as_str()
         )
-        .with_default(false)
+        .with_default(true)
         .prompt())
     {
         return Ok(());
