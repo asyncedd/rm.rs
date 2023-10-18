@@ -80,9 +80,8 @@ fn remove_file_with_options<F>(path: &Path, action_fn: F, options: &Cli) -> Resu
 where
     F: for<'a> Fn(&'a Path) -> Result<(), io::Error>,
 {
-    #[allow(clippy::collapsible_if)]
-    if options.interactive || (!options.force && path.metadata()?.permissions().readonly()) {
-        if !check_for_user_input!(Confirm::new(
+    if (options.interactive || (!options.force && path.metadata()?.permissions().readonly()))
+        && !check_for_user_input!(Confirm::new(
             format!(
                 "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
                 path.to_string_lossy()
@@ -91,9 +90,8 @@ where
         )
         .with_default(false)
         .prompt())
-        {
-            return Ok(());
-        }
+    {
+        return Ok(());
     }
 
     action_fn(path)?;
@@ -104,7 +102,7 @@ fn main() -> Result<(), io::Error> {
     let opt = Cli::parse();
 
     opt.files.iter().try_for_each(|file| {
-        if let Err(err) = check_file_type(&file).delete(&opt, file) {
+        if let Err(err) = check_file_type(file).delete(&opt, file) {
             eprint!("Error: {}", err);
         }
         Ok(())
