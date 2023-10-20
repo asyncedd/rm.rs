@@ -7,5 +7,14 @@ edition = "2021"
 inquire = "0.6.2"
 clap = { version = "4.4.6", features = ["derive"] }
 
+[profile.release.package.clap]
+opt-level = 3
+
+[profile.release]
+lto = "fat"
+strip = "symbols"
+panic = "abort"
+codegen-units = 1
+
 [profile.dev]
 opt-level = 1
