@@ -73,16 +73,16 @@ impl FileType {
     }
 }
 
-macro_rules! check_for_user_input {
-    ($confirm: expr) => {
-        match $confirm {
-            Ok(true) => true,
-            Ok(false) => false,
-            Err(_) => false,
-        }
-    };
+#[inline]
+fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
+    match confirm {
+        Ok(true) => true,
+        Ok(false) => false,
+        Err(_) => false,
+    }
 }
 
+#[inline]
 fn check_file_type(path: &Path) -> FileType {
     match path.exists() {
         true if path.is_file() => FileType::File,
@@ -97,15 +97,17 @@ where
     F: for<'a> Fn(&'a Path) -> Result<(), io::Error>,
 {
     if (options.interactive || (!options.force && path.metadata()?.permissions().readonly()))
-        && !check_for_user_input!(Confirm::new(
-            format!(
-                "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
-                path.to_string_lossy()
+        && !check_for_user_input(
+            Confirm::new(
+                format!(
+                    "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
+                    path.to_string_lossy()
+                )
+                .as_str(),
             )
-            .as_str()
+            .with_default(true)
+            .prompt(),
         )
-        .with_default(true)
-        .prompt())
     {
         return Ok(());
     }
