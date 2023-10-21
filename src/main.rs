@@ -48,7 +48,7 @@ impl FileType {
             FileType::Other => {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
-                    "Unsupported file type. (Neither a file nor a directory.)",
+                    format!("{:?} is an unsupported file type.", path),
                 ))
             }
         }
@@ -98,13 +98,12 @@ where
     Ok(())
 }
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), Report> {
     let opt = Cli::parse();
+    color_eyre::install()?;
 
     opt.files.iter().try_for_each(|file| {
-        if let Err(err) = check_file_type(file).delete(&opt, file) {
-            eprint!("Error: {}", err);
-        }
+        check_file_type(file).delete(&opt, file)?;
         Ok(())
     })
 }
