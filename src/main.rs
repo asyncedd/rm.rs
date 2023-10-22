@@ -49,27 +49,17 @@ enum FileType {
 impl FileType {
     fn delete(&self, opt: &Cli, path: &Path) -> Result<(), io::Error> {
         match self {
-            FileType::File => {
-                remove_file_with_options(path, |path| fs::remove_file(path), opt)?;
-            }
-            FileType::Directory => {
-                remove_file_with_options(path, |path| fs::remove_dir_all(path), opt)?;
-            }
-            FileType::NotFound => {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("File not found: {:?}", path),
-                ))
-            }
-            FileType::Other => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("{:?} is an unsupported file type.", path),
-                ))
-            }
+            FileType::File => remove_file_with_options(path, |p| fs::remove_file(p), opt),
+            FileType::Directory => remove_file_with_options(path, |p| fs::remove_dir_all(p), opt),
+            FileType::NotFound => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("File not found: {:?}", path),
+            )),
+            FileType::Other => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("{:?} is an unsupported file type.", path),
+            )),
         }
-
-        Ok(())
     }
 }
 
