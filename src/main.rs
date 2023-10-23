@@ -47,10 +47,10 @@ enum FileType {
 }
 
 impl FileType {
-    fn delete(&self, opt: &Cli, path: &Path) -> Result<(), io::Error> {
+    fn delete(&self, opt: &Cli, path: &PathBuf) -> Result<(), io::Error> {
         match self {
-            FileType::File => remove_file_with_options(path, |p| fs::remove_file(p), opt),
-            FileType::Directory => remove_file_with_options(path, |p| fs::remove_dir_all(p), opt),
+            FileType::File => remove_file_with_options(path, &fs::remove_file, opt),
+            FileType::Directory => remove_file_with_options(path, &fs::remove_dir_all, opt),
             FileType::NotFound => Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!("File not found: {:?}", path),
@@ -73,7 +73,7 @@ fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
 }
 
 #[inline]
-fn check_file_type(path: &Path) -> FileType {
+fn check_file_type(path: &PathBuf) -> FileType {
     match path.exists() {
         true if path.is_file() => FileType::File,
         true if path.is_dir() => FileType::Directory,
@@ -82,10 +82,11 @@ fn check_file_type(path: &Path) -> FileType {
     }
 }
 
-fn remove_file_with_options<F>(path: &Path, action_fn: F, options: &Cli) -> Result<(), io::Error>
-where
-    F: for<'a> Fn(&'a Path) -> Result<(), io::Error>,
-{
+fn remove_file_with_options(
+    path: &PathBuf,
+    action: &dyn Fn(PathBuf) -> Result<(), io::Error>,
+    options: &Cli,
+) -> Result<(), io::Error> {
     if (options.interactive || (!options.force && path.metadata()?.permissions().readonly()))
         && !check_for_user_input(
             Confirm::new(
@@ -102,7 +103,7 @@ where
         return Ok(());
     }
 
-    action_fn(path)?;
+    action(path.to_path_buf())?;
     Ok(())
 }
 
