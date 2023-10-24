@@ -40,22 +40,22 @@ struct Cli {
 }
 
 enum FileType {
-    File,
-    Directory,
-    NotFound,
-    Other,
+    File(PathBuf),
+    Directory(PathBuf),
+    NotFound(PathBuf),
+    Other(PathBuf),
 }
 
 impl FileType {
-    fn delete(&self, opt: &Cli, path: &PathBuf) -> Result<(), io::Error> {
+    fn delete(&self, opt: &Cli) -> Result<(), io::Error> {
         match self {
-            FileType::File => remove_file_with_options(path, &fs::remove_file, opt),
-            FileType::Directory => remove_file_with_options(path, &fs::remove_dir_all, opt),
-            FileType::NotFound => Err(io::Error::new(
+            FileType::File(path) => remove_file_with_options(path, &fs::remove_file, opt),
+            FileType::Directory(path) => remove_file_with_options(path, &fs::remove_dir_all, opt),
+            FileType::NotFound(path) => Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!("File not found: {:?}", path),
             )),
-            FileType::Other => Err(io::Error::new(
+            FileType::Other(path) => Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!("{:?} is an unsupported file type.", path),
             )),
@@ -73,12 +73,12 @@ fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
 }
 
 #[inline]
-fn check_file_type(path: &PathBuf) -> FileType {
+fn check_file_type(path: PathBuf) -> FileType {
     match path.exists() {
-        true if path.is_file() => FileType::File,
-        true if path.is_dir() => FileType::Directory,
-        false => FileType::NotFound,
-        _ => FileType::Other,
+        true if path.is_file() => FileType::File(path),
+        true if path.is_dir() => FileType::Directory(path),
+        false => FileType::NotFound(path),
+        _ => FileType::Other(path),
     }
 }
 
@@ -112,7 +112,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     opt.files.iter().try_for_each(|file| {
-        check_file_type(file).delete(&opt, file)?;
+        check_file_type(file.to_path_buf()).delete(&opt)?;
         Ok(())
     })
 }
