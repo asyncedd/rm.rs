@@ -1,5 +1,5 @@
 //  A rm replacement written in Rust.
-//  Copyright (C) 2023~ asyncedd<isynqquwu@proton.me>
+//  Copyright (C) 2023 asyncedd<isynqquwu@proton.me>
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,22 @@ use prelude::*;
     author = "asyncedd<neoasync.proton.me>",
     version = "1.0",
     about = "Super simple rm replacement in Rust",
-    long_about = "A rm replacement written in Rust by asyncedd<neoasync.proton.me> as a toy project"
+    long_about = r"
+A rm replacement written in Rust.
+Copyright (C) 2023 asyncedd<isynqquwu@proton.me>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."
 )]
 #[command(propagate_version = true)]
 struct Cli {
@@ -87,7 +102,10 @@ fn remove_file_with_options(
     action: &dyn Fn(PathBuf) -> Result<(), io::Error>,
     options: &Cli,
 ) -> Result<(), io::Error> {
-    if (options.interactive || (!options.force && path.metadata()?.permissions().readonly()))
+    let should_confirm =
+        options.interactive || (!options.force && path.metadata()?.permissions().readonly());
+
+    if should_confirm
         && !check_for_user_input(
             Confirm::new(
                 format!(
