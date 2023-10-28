@@ -1,5 +1,5 @@
 //  A rm replacement written in Rust.
-//  Copyright (C) 2023 asyncedd<isynqquwu@proton.me>
+//  Copyright (C) 2023 asyncedd<neoasync@proton.me>
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ use prelude::*;
     about = "Super simple rm replacement in Rust",
     long_about = r"
 A rm replacement written in Rust.
-Copyright (C) 2023 asyncedd<isynqquwu@proton.me>
+Copyright (C) 2023 asyncedd<neoasync@proton.me>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
