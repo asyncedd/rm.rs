@@ -17,7 +17,7 @@
 mod prelude;
 use prelude::*;
 
-#[derive(Parser)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[command(
     author = "asyncedd<neoasync.proton.me>",
     version = "1.0",
