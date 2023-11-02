@@ -40,7 +40,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."
 )]
 #[command(propagate_version = true)]
-struct Cli {
+struct CliOptions {
     /// Files to remove
     #[arg(required = true)]
     files: Vec<PathBuf>,
@@ -50,8 +50,8 @@ struct Cli {
     force: bool,
 
     /// Prompt every action
-    #[arg(short, long)]
-    interactive: bool,
+    #[arg(short, long = "interactive")]
+    is_interactive: bool,
 }
 
 enum FileType {
@@ -62,10 +62,10 @@ enum FileType {
 }
 
 impl FileType {
-    fn delete(&self, opt: &Cli) -> Result<(), io::Error> {
+    fn delete(&self, options: &CliOptions) -> Result<(), io::Error> {
         match self {
-            FileType::File(path) => remove_file_with_options(path, &fs::remove_file, opt),
-            FileType::Directory(path) => remove_file_with_options(path, &fs::remove_dir_all, opt),
+            FileType::File(path) => remove_object(path, &fs::remove_file, options),
+            FileType::Directory(path) => remove_object(path, &fs::remove_dir_all, options),
             FileType::NotFound(path) => Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!("File not found: {:?}", path),
@@ -79,8 +79,8 @@ impl FileType {
 }
 
 #[inline]
-fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
-    match confirm {
+fn check_for_user_input(confirmation_output: Result<bool, InquireError>) -> bool {
+    match confirmation_output {
         Ok(true) => true,
         Ok(false) => false,
         Err(_) => false,
@@ -88,29 +88,29 @@ fn check_for_user_input(confirm: Result<bool, InquireError>) -> bool {
 }
 
 #[inline]
-fn check_file_type(path: PathBuf) -> FileType {
-    match path.exists() {
-        true if path.is_file() => FileType::File(path),
-        true if path.is_dir() => FileType::Directory(path),
-        false => FileType::NotFound(path),
-        _ => FileType::Other(path),
+fn check_file_type(path_to_check: PathBuf) -> FileType {
+    match path_to_check.exists() {
+        true if path_to_check.is_file() => FileType::File(path_to_check),
+        true if path_to_check.is_dir() => FileType::Directory(path_to_check),
+        false => FileType::NotFound(path_to_check),
+        _ => FileType::Other(path_to_check),
     }
 }
 
-fn remove_file_with_options(
-    path: &PathBuf,
-    action: &dyn Fn(PathBuf) -> Result<(), io::Error>,
-    options: &Cli,
+fn remove_object(
+    path_to_remove: &PathBuf,
+    removal_action: &dyn Fn(PathBuf) -> Result<(), io::Error>,
+    options: &CliOptions,
 ) -> Result<(), io::Error> {
-    let should_confirm =
-        options.interactive || (!options.force && path.metadata()?.permissions().readonly());
+    let is_readonly = path_to_remove.metadata()?.permissions().readonly();
+    let should_confirm = options.is_interactive || (!options.force && is_readonly);
 
     if should_confirm
         && !check_for_user_input(
             Confirm::new(
                 format!(
                     "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
-                    path.to_string_lossy()
+                    path_to_remove.to_string_lossy()
                 )
                 .as_str(),
             )
@@ -121,16 +121,16 @@ fn remove_file_with_options(
         return Ok(());
     }
 
-    action(path.to_path_buf())?;
+    removal_action(path_to_remove.to_path_buf())?;
     Ok(())
 }
 
 fn main() -> Result<()> {
-    let opt = Cli::parse();
+    let options: CliOptions = CliOptions::parse();
     color_eyre::install()?;
 
-    opt.files.iter().try_for_each(|file| {
-        check_file_type(file.to_path_buf()).delete(&opt)?;
+    options.files.iter().try_for_each(|file| {
+        check_file_type(file.to_path_buf()).delete(&options)?;
         Ok(())
     })
 }
