@@ -54,6 +54,12 @@ struct CliOptions {
     is_interactive: bool,
 }
 
+struct RemoveArguments<'a> {
+    path_to_remove: &'a PathBuf,
+    removal_action: &'a dyn Fn(PathBuf) -> Result<(), std::io::Error>,
+    options: &'a CliOptions,
+}
+
 enum FileType {
     File(PathBuf),
     Directory(PathBuf),
@@ -64,8 +70,16 @@ enum FileType {
 impl FileType {
     fn delete(&self, options: &CliOptions) -> Result<(), io::Error> {
         match self {
-            FileType::File(path) => remove_object(path, &fs::remove_file, options),
-            FileType::Directory(path) => remove_object(path, &fs::remove_dir_all, options),
+            FileType::File(path) => remove_object(RemoveArguments {
+                path_to_remove: path,
+                removal_action: &fs::remove_file,
+                options,
+            }),
+            FileType::Directory(path) => remove_object(RemoveArguments {
+                path_to_remove: path,
+                removal_action: &fs::remove_dir_all,
+                options,
+            }),
             FileType::NotFound(path) => Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!("File not found: {:?}", path),
@@ -97,20 +111,16 @@ fn check_file_type(path_to_check: PathBuf) -> FileType {
     }
 }
 
-fn remove_object(
-    path_to_remove: &PathBuf,
-    removal_action: &dyn Fn(PathBuf) -> Result<(), io::Error>,
-    options: &CliOptions,
-) -> Result<(), io::Error> {
-    let is_readonly = path_to_remove.metadata()?.permissions().readonly();
-    let should_confirm = options.is_interactive || (!options.force && is_readonly);
+fn remove_object(arg: RemoveArguments) -> Result<(), io::Error> {
+    let is_readonly = arg.path_to_remove.metadata()?.permissions().readonly();
+    let should_confirm = arg.options.is_interactive || (!arg.options.force && is_readonly);
 
     if should_confirm
         && !check_for_user_input(
             Confirm::new(
                 format!(
                     "The file \"{}\" is read-only or you're in interactive mode, delete anyways?",
-                    path_to_remove.to_string_lossy()
+                    arg.path_to_remove.to_string_lossy()
                 )
                 .as_str(),
             )
@@ -121,7 +131,7 @@ fn remove_object(
         return Ok(());
     }
 
-    removal_action(path_to_remove.to_path_buf())?;
+    (arg.removal_action)(arg.path_to_remove.to_path_buf())?;
     Ok(())
 }
 
