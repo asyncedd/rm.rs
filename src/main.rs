@@ -60,14 +60,14 @@ struct RemoveArguments<'a> {
     options: &'a CliOptions,
 }
 
-enum FileType {
-    File(PathBuf),
-    Directory(PathBuf),
-    NotFound(PathBuf),
-    Other(PathBuf),
+enum FileType<'a> {
+    File(&'a PathBuf),
+    Directory(&'a PathBuf),
+    NotFound(&'a PathBuf),
+    Other(&'a PathBuf),
 }
 
-impl FileType {
+impl FileType<'_> {
     fn delete(&self, options: &CliOptions) -> Result<(), io::Error> {
         match self {
             FileType::File(path) => remove_object(RemoveArguments {
@@ -102,7 +102,7 @@ fn check_for_user_input(confirmation_output: Result<bool, InquireError>) -> bool
 }
 
 #[inline]
-fn check_file_type(path_to_check: PathBuf) -> FileType {
+fn check_file_type(path_to_check: &PathBuf) -> FileType {
     match path_to_check.exists() {
         true if path_to_check.is_file() => FileType::File(path_to_check),
         true if path_to_check.is_dir() => FileType::Directory(path_to_check),
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     options.files.iter().try_for_each(|file| {
-        check_file_type(file.to_path_buf()).delete(&options)?;
+        check_file_type(file).delete(&options)?;
         Ok(())
     })
 }
